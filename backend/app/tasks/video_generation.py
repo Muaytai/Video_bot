@@ -3,7 +3,7 @@ import httpx
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.services.animator import animate_avatar_with_d_id
-from app.services.autoposting import post_to_instagram, post_to_telegram
+from app.services.autoposting import post_to_telegram
 from app.services.script_generator import generate_script
 from app.services.tts import generate_audio_from_text
 from app.services.video_processor import render_final_video
@@ -59,10 +59,6 @@ def generate_video_task(
         channel_id=settings.POST_CHANNEL_ID,
         video_path=final_video_path,
         caption=f"Новое видео на тему: {theme}",
-    )
-    post_to_instagram(
-        video_path=final_video_path,
-        caption=f"Новое видео на тему: {theme} #shorts #reels",
     )
 
     return final_video_path 

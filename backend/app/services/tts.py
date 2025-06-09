@@ -1,55 +1,42 @@
 import os
-from pathlib import Path
-from elevenlabs import Voice, VoiceSettings
-from elevenlabs.client import ElevenLabs
-from dotenv import load_dotenv
+import httpx
+from app.core.config import settings
 
-# Загружаем переменные окружения из .env в корне проекта
-load_dotenv()
-
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-
-if not ELEVENLABS_API_KEY:
-    raise ValueError("ELEVENLABS_API_KEY не найден в .env файле")
-
-client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
+MEDIA_PATH = "media"
 
 
 def generate_audio_from_text(text: str, user_id: int) -> str:
     """
-    Генерирует аудио из текста с помощью ElevenLabs и сохраняет его.
-
-    Args:
-        text: Текст для озвучки.
-        user_id: ID пользователя для создания уникального имени файла.
-
-    Returns:
-        Путь к сохраненному аудиофайлу.
+    Генерирует озвучку текста через ElevenLabs API и сохраняет mp3-файл.
     """
+    api_key = settings.ELEVENLABS_API_KEY
+    voice_id = "EXAVITQu4vr4xnSDxMaL"  # Можно заменить на другой voice_id
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+
+    headers = {
+        "xi-api-key": api_key,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+    }
+    payload = {
+        "text": text,
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.5
+        }
+    }
+
+    os.makedirs(MEDIA_PATH, exist_ok=True)
+    output_path = os.path.join(MEDIA_PATH, f"user_{user_id}_tts.mp3")
+
     try:
-        # Генерируем аудио
-        audio = client.generate(
-            text=text,
-            voice=Voice(
-                voice_id='21m00Tcm4TlvDq8ikWAM',  # Используем предопределенный голос Adam
-                settings=VoiceSettings(stability=0.5, similarity_boost=0.75, style=0.0, use_speaker_boost=True)
-            ),
-            model='eleven_multilingual_v2'
-        )
-
-        # Создаем директорию media, если она не существует
-        media_dir = Path("media")
-        media_dir.mkdir(exist_ok=True)
-
-        # Сохраняем аудиофайл
-        output_path = media_dir / f"user_{user_id}_audio.mp3"
-        with open(output_path, "wb") as f:
-            f.write(audio)
-
-        print(f"Аудио успешно сгенерировано и сохранено в {output_path}")
-        return str(output_path)
-
+        with httpx.stream("POST", url, headers=headers, json=payload, timeout=60) as response:
+            response.raise_for_status()
+            with open(output_path, "wb") as f:
+                for chunk in response.iter_bytes():
+                    f.write(chunk)
+        return output_path
     except Exception as e:
-        print(f"Ошибка при генерации аудио: {e}")
-        # В реальном проекте здесь будет логирование
+        print(f"Ошибка при генерации озвучки через ElevenLabs: {e}")
         raise 

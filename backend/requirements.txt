@@ -8,4 +8,7 @@ redis
 fastapi-admin
 google-generativeai
 flower
-flake8 
+flake8
+moviepy
+python-telegram-bot
+httpx  
