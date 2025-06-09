@@ -1,0 +1,4 @@
+import os
+
+TOKEN = os.getenv("TELEGRAM_TOKEN", "YOUR_TELEGRAM_TOKEN")
+CHANNEL_ID = os.getenv("CHANNEL_ID", "YOUR_CHANNEL_ID") 
