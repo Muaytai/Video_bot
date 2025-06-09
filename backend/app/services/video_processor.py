@@ -2,24 +2,7 @@ import time
 from pathlib import Path
 
 from moviepy.editor import VideoFileClip, CompositeVideoClip
-
-
-def text_to_speech(text: str) -> str:
-    """
-    Dummy function to simulate text-to-speech conversion.
-    """
-    print(f"Converting text to speech: '{text[:30]}...'")
-    time.sleep(5)
-    return "path/to/audio.mp3"
-
-
-def animate_avatar(avatar_path: str, audio_path: str) -> str:
-    """
-    Dummy function to simulate avatar animation.
-    """
-    print(f"Animating avatar '{avatar_path}' with audio '{audio_path}'")
-    time.sleep(10)
-    return "path/to/animated_avatar.mp4"
+from app.services.tts import generate_audio_from_text
 
 
 def render_final_video(

@@ -22,7 +22,7 @@ def create_video(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if user.generated_videos_count >= 1 and not user.is_subscribed:
+    if user.generated_videos_count >= 5 and not user.is_subscribed:
         raise HTTPException(
             status_code=403,
             detail="You have reached the limit of free videos.",

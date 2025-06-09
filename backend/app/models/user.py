@@ -1,5 +1,6 @@
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
+from datetime import datetime
 
 from app.db.base import Base
 
@@ -17,12 +18,11 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     is_subscribed: Mapped[bool] = mapped_column(default=False)
     generated_videos_count: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[sa.DateTime] = mapped_column(
-        server_default=sa.func.now(),
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
     )
-    updated_at: Mapped[sa.DateTime] = mapped_column(
-        server_default=sa.func.now(),
-        onupdate=sa.func.now(),
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()
     )
 
     def __repr__(self) -> str:
