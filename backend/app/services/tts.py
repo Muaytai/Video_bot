@@ -1,5 +1,6 @@
 import os
 import httpx
+from pathlib import Path
 from app.core.config import settings
 
 MEDIA_PATH = "media"
@@ -27,8 +28,11 @@ def generate_audio_from_text(text: str, user_id: int) -> str:
         }
     }
 
-    os.makedirs(MEDIA_PATH, exist_ok=True)
-    output_path = os.path.join(MEDIA_PATH, f"user_{user_id}_tts.mp3")
+    # Используем абсолютный путь к директории media
+    project_root = Path(__file__).resolve().parents[3]  # backend/app/services -> корень проекта
+    media_dir = project_root / "media"
+    media_dir.mkdir(exist_ok=True)
+    output_path = media_dir / f"user_{user_id}_tts.mp3"
 
     try:
         with httpx.stream("POST", url, headers=headers, json=payload, timeout=60) as response:
@@ -36,7 +40,7 @@ def generate_audio_from_text(text: str, user_id: int) -> str:
             with open(output_path, "wb") as f:
                 for chunk in response.iter_bytes():
                     f.write(chunk)
-        return output_path
+        return str(output_path)
     except Exception as e:
         print(f"Ошибка при генерации озвучки через ElevenLabs: {e}")
         raise 
