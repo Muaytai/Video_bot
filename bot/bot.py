@@ -1,6 +1,6 @@
 import asyncio
 import logging
-
+import nest_asyncio
 from telegram.ext import Application
 
 from bot.config import TOKEN
@@ -30,5 +30,7 @@ async def main() -> None:
     await application.run_polling()
 
 
-if __name__ == "__main__":
-    asyncio.run(main()) 
+if __name__ == "__main__":    
+    nest_asyncio.apply()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main()) 

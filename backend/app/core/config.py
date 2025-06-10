@@ -1,5 +1,11 @@
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
+
+# Загрузка переменных окружения из файла .env
+env_path = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 class Settings(BaseSettings):
@@ -15,7 +21,8 @@ class Settings(BaseSettings):
     FASTAPI_ADMIN_SECRET_KEY: str
 
     class Config:
-        pass
+        env_file = env_path
+        env_file_encoding = "utf-8"
 
 
 settings = Settings() 

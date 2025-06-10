@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app import schemas
+from app.schemas.video import VideoCreate
 from app.api import deps
 from app.tasks.video_generation import generate_video_task
 from app.services import user as user_service
@@ -13,7 +13,7 @@ router = APIRouter()
 def create_video(
     *,
     db: Session = Depends(deps.get_db),
-    video_in: schemas.VideoCreate,
+    video_in: VideoCreate,
 ):
     """
     Create new video generation task.

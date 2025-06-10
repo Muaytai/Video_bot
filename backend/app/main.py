@@ -24,6 +24,9 @@ from fastapi import FastAPI
 from app.api.api import api_router
 from app.core.logging import setup_logging
 from app.db.session import engine
+from app.db.base import Base
+# Импортируем все модели для создания таблиц
+from app.models import user
 
 app = FastAPI()
 
@@ -31,6 +34,8 @@ app = FastAPI()
 @app.on_event("startup")
 async def startup():
     setup_logging()
+    # Создаем все таблицы в базе данных
+    Base.metadata.create_all(bind=engine)
     # await admin_app.init(
     #     admin_secret="test",
     #     engine=engine,

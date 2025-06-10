@@ -9,6 +9,12 @@ fastapi-admin
 google-generativeai
 flower
 flake8
-moviepy
+moviepy==2.2.1
 python-telegram-bot
-httpx  
+httpx
+imageio-ffmpeg==0.4.9
+numpy==1.26.4
+Pillow==10.2.0  
+python-telegram-bot>=20.0
+httpx
+nest_asyncio 
