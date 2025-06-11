@@ -9,6 +9,7 @@ load_dotenv(dotenv_path=env_path)
 
 
 class Settings(BaseSettings):
+    API_V1_STR: str = "/api/v1"
     DATABASE_URL: str
     TELEGRAM_TOKEN: str
     CHANNEL_ID: str

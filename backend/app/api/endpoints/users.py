@@ -34,4 +34,15 @@ def subscribe_user(*, db: Session = Depends(deps.get_db), telegram_id: int):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user_service.user.update(db, db_obj=user, obj_in={"is_subscribed": True})
-    return {"message": "Subscription activated"} 
+    return {"message": "Subscription activated"}
+
+@router.post("/reset-video-count")
+def reset_video_count(*, db: Session = Depends(deps.get_db), telegram_id: int):
+    """
+    Сбросить счетчик созданных видео для пользователя.
+    """
+    user = user_service.user.get_by_telegram_id(db, telegram_id=telegram_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_service.user.update(db, db_obj=user, obj_in={"generated_videos_count": 0})
+    return {"message": "Video count reset successfully"} 

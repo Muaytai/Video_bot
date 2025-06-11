@@ -1,10 +1,11 @@
 from celery import Celery
+from app.core.config import settings
 
 celery_app = Celery(
     "tasks",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/0",
-    include=["app.tasks"],
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
+    include=["app.tasks.video_generation"],
 )
 
 celery_app.conf.update(
