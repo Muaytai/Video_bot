@@ -1,166 +1,120 @@
-import httpx
 import os
 import traceback
 from pathlib import Path
+import asyncio
+from telegram import Bot
 
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.services.animator import animate_avatar_with_d_id
-from app.services.autoposting import post_to_telegram
 from app.services.script_generator import generate_script
 from app.services.tts import generate_audio_from_text
 from app.services.video_processor import render_final_video
+from app.services.autoposting import post_to_telegram
 
 
 @celery_app.task
 def generate_video_task(
-    user_id: int,
-    theme: str,
-    bot_token: str,
-    chat_id: int,
-    background: str,
-    avatar_info: str,
-):
+    user_id: int, theme: str, chat_id: int, background: str, avatar_info: str
+) -> str:
     """
-    A task that simulates video generation and sends a message on completion.
+    Асинхронная задача для генерации видео.
+    
+    Args:
+        user_id: ID пользователя.
+        theme: Тема видео.
+        chat_id: ID чата для отправки результата.
+        background: Название фона.
+        avatar_info: Путь к аватару или информация о нем.
+    
+    Returns:
+        Путь к готовому видео.
     """
+    bot = Bot(token=settings.TELEGRAM_TOKEN)
+
+    async def send_message(text):
+        await bot.send_message(chat_id=chat_id, text=text)
+
     try:
-        # 1. Generate script
+        # 1. Генерация сценария
         try:
             script = generate_script(theme)
-            httpx.post(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": f"Сценарий готов:\n\n{script}"},
-            )
         except Exception as e:
-            print(f"Ошибка при генерации сценария: {e}")
-            traceback.print_exc()
-            # Отправляем сообщение об ошибке пользователю
-            httpx.post(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": f"Возникла проблема при генерации сценария. Используем запасной вариант."},
-            )
-            # Используем запасной вариант из script_generator
-            script = generate_script(theme)
+            print(f"Error generating script with Gemini: {e}")
+            from app.services.script_generator import DEFAULT_SCRIPTS
+            script = DEFAULT_SCRIPTS.get(theme, "Сценарий по умолчанию...")
+        
+        asyncio.run(send_message(f"Сценарий готов:\n\n{script}"))
+        
+        # 2. Генерация аудио
+        lines = [line.split('"')[1] for line in script.split('\n') if line.strip().startswith("Текст:")]
+        full_text = " ".join(lines)
+        audio_path = generate_audio_from_text(user_id, full_text)
+        
+        # 3. Resolve paths
+        project_root = Path(__file__).resolve().parent.parent.parent.parent
+        
+        full_avatar_path = project_root / avatar_info
+        if not full_avatar_path.is_file():
+             raise FileNotFoundError(f"Файл аватара не найден: {full_avatar_path}")
 
-        # 2. Generate audio
-        try:
-            audio_path = generate_audio_from_text(script, user_id)
-        except Exception as e:
-            print(f"Ошибка при генерации аудио: {e}")
-            traceback.print_exc()
-            # Отправляем сообщение об ошибке пользователю
-            httpx.post(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": f"Возникла проблема при генерации аудио. Используем запасной вариант."},
-            )
-            # Создаем пустой аудиофайл как заглушку
-            project_root = Path(__file__).resolve().parents[3]
-            media_dir = project_root / "media"
-            media_dir.mkdir(exist_ok=True)
-            audio_path = str(media_dir / f"user_{user_id}_tts.mp3")
-            with open(audio_path, "wb") as f:
-                # Пустой MP3 файл минимального размера
-                f.write(b"\xFF\xFB\x90\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+        full_audio_path = project_root / audio_path
+        if not full_audio_path.is_file():
+            backend_audio_path = Path.cwd() / audio_path
+            if backend_audio_path.is_file():
+                full_audio_path = backend_audio_path
+            else:
+                 raise FileNotFoundError(f"Аудио файл не найден: {full_audio_path} or {backend_audio_path}")
 
-        # 3. Animate avatar
+        # 4. Анимация аватара
         try:
             animated_avatar_path = animate_avatar_with_d_id(
-                user_id=user_id, avatar_path=avatar_info, audio_path=audio_path
+                user_id=user_id,
+                avatar_path=str(full_avatar_path),
+                audio_path=str(full_audio_path)
             )
         except Exception as e:
             print(f"Ошибка при анимации аватара: {e}")
             traceback.print_exc()
-            # Если анимация не удалась, используем исходное изображение как заглушку
-            # Преобразуем относительный путь в абсолютный
-            project_root = Path(__file__).resolve().parents[3]
-            if not os.path.isabs(avatar_info):
-                avatar_path = project_root / avatar_info
-            else:
-                avatar_path = Path(avatar_info)
-                
-            # Создаем путь для "анимированного" аватара (хотя он не анимирован)
-            media_dir = project_root / "media"
-            media_dir.mkdir(exist_ok=True)
-            animated_avatar_path = str(media_dir / f"user_{user_id}_avatar_fallback.jpg")
-            
-            # Копируем исходный файл как заглушку
-            if os.path.exists(avatar_path):
-                import shutil
-                shutil.copy(avatar_path, animated_avatar_path)
-            else:
-                # Если файла нет, создаем пустой файл
-                with open(animated_avatar_path, "wb") as f:
-                    f.write(b"")
-            
-            # Уведомляем пользователя о проблеме
-            httpx.post(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": "Не удалось анимировать аватар. Используем статичное изображение."},
-            )
-
-        # 4. Render final video
-        try:
-            final_video_path = render_final_video(
-                user_id=user_id,
-                animated_avatar_path=animated_avatar_path,
-                background_name=background,
-            )
-        except Exception as e:
-            print(f"Ошибка при рендеринге видео: {e}")
-            traceback.print_exc()
-            
-            # Уведомляем пользователя о проблеме
-            httpx.post(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": "Произошла ошибка при создании видео. Пожалуйста, попробуйте еще раз с другими параметрами."},
-            )
-            return None
-
-        # 5. Send video to user
-        try:
-            result_caption = f"Ваше видео на тему '{theme}' готово! 🎉"
-            with open(final_video_path, "rb") as video_file:
-                httpx.post(
-                    f"https://api.telegram.org/bot{bot_token}/sendVideo",
-                    data={"chat_id": chat_id, "caption": result_caption},
-                    files={"video": video_file},
-                    timeout=120,
-                )
-        except Exception as e:
-            print(f"Ошибка при отправке видео: {e}")
-            traceback.print_exc()
-            # Уведомляем пользователя о проблеме
-            httpx.post(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": f"Видео создано, но его не удалось отправить. Ошибка: {str(e)[:100]}..."},
-            )
-
+            asyncio.run(send_message("Не удалось анимировать аватар. Используем статичное изображение."))
+            animated_avatar_path = str(full_avatar_path)
+        
+        # 5. Рендеринг финального видео
+        final_video_path = render_final_video(
+            user_id=user_id,
+            animated_avatar_path=animated_avatar_path,
+            background_name=background
+        )
+        
         # 6. Autoposting
         try:
             post_to_telegram(
                 bot_token=settings.TELEGRAM_TOKEN,
-                channel_id=settings.POST_CHANNEL_ID,
                 video_path=final_video_path,
                 caption=f"Новое видео на тему: {theme}",
+                channel_ids=settings.POST_CHANNEL_ID
             )
         except Exception as e:
             print(f"Ошибка при автопостинге: {e}")
             traceback.print_exc()
-
+        
+        # 7. Отправка видео пользователю
+        async def send_final_video():
+            with open(final_video_path, "rb") as video_file:
+                await bot.send_video(
+                    chat_id=chat_id,
+                    video=video_file,
+                    caption=f"Ваше видео на тему \"{theme}\" готово!"
+                )
+        asyncio.run(send_final_video())
+        
         return final_video_path
-        
+    
     except Exception as e:
-        print(f"Критическая ошибка при выполнении задачи: {e}")
+        print(f"Ошибка при генерации видео: {e}")
         traceback.print_exc()
-        
-        # Отправляем сообщение об ошибке пользователю
         try:
-            httpx.post(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": "Произошла непредвиденная ошибка при создании видео. Пожалуйста, попробуйте позже."},
-            )
-        except:
-            pass
-            
+            asyncio.run(send_message("Произошла ошибка при создании видео. Пожалуйста, попробуйте еще раз с другими параметрами."))
+        except Exception as telegram_err:
+            print(f"Failed to send error message to telegram: {telegram_err}")
         return None 

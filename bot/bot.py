@@ -4,7 +4,7 @@ import nest_asyncio
 from telegram.ext import Application
 
 from bot.config import TOKEN
-from bot.handlers.generate import generate_handler
+from bot.handlers.generate import generate_handler, reset_count_handler
 from bot.handlers.start import start_handler
 from bot.handlers.subscribe import subscribe_handler, precheckout_handler, successful_payment_handler
 
@@ -25,6 +25,7 @@ async def main() -> None:
     application.add_handler(subscribe_handler)
     application.add_handler(precheckout_handler)
     application.add_handler(successful_payment_handler)
+    application.add_handler(reset_count_handler)
 
     # Run the bot until the user presses Ctrl-C
     await application.run_polling()

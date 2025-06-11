@@ -31,7 +31,6 @@ def create_video(
     task = generate_video_task.delay(
         video_in.user_id,
         video_in.theme,
-        settings.TELEGRAM_TOKEN,
         video_in.chat_id,
         video_in.background,
         video_in.avatar_info,

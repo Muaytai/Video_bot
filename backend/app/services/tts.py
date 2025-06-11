@@ -41,6 +41,16 @@ def generate_audio_from_text(text: str, user_id: int) -> str:
                 for chunk in response.iter_bytes():
                     f.write(chunk)
         return str(output_path)
-    except Exception as e:
+    except httpx.HTTPStatusError as e:
+        # Сначала читаем тело ответа, потом парсим JSON
+        error_content = e.response.read()
+        try:
+            error_details = e.response.json()
+        except Exception:
+            error_details = {"detail": error_content.decode()}
+
         print(f"Ошибка при генерации озвучки через ElevenLabs: {e}")
-        raise 
+        print(f"Детали ошибки от API: {error_details}")
+        raise e
+
+    media_dir.mkdir(parents=True, exist_ok=True) 
